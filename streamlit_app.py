@@ -12,19 +12,13 @@ df = kagglehub.load_dataset(
   "aurlienplissier/abrank",
   file_path,
   pandas_kwargs={
-      "engine": "python",   # needed for sep=None
-      "sep": None           # sniff delimiter automatically
+      "sep": "\t" 
   }
-  # Provide any additional arguments like 
-  # sql_query or pandas_kwargs. See the 
-  # documenation for more information:
-  # https://github.com/Kaggle/kagglehub/blob/main/README.md#kaggledatasetadapterpandas
 )
 
-print("First 5 records:", df.head())
-st.title('🎈 App Name')
+st.title('Antibody-Antigen Data Review (EDA)')
 
-st.write('Hello world!')
+st.write(df.columns.tolist())
 
 st.subheader("🔎 Data Preview")
 n_preview = st.slider("Rows to preview", 5, 200, 25, help="Adjust how many rows to show below.")
