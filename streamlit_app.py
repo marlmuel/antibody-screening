@@ -18,8 +18,6 @@ df = kagglehub.load_dataset(
 )
 
 print("First 5 records:", df.head())
-read.csv("AbRank_dataset.csv")
-
 st.title('🎈 App Name')
 
 st.write('Hello world!')
