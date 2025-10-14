@@ -44,6 +44,14 @@ st.write(f"**Rows:** {df.shape[0]}  |  **Columns:** {df.shape[1]}")
 st.write("### 🧾 Column names")
 st.write(df.columns.tolist())
 
+# Columns we want numeric
+NUM_COLS = ["Affinity_Kd [nM]", "IC50 [ug/mL]", "log(Kd_ratio)", "log_Aff"]
+
+# 1) Coerce to numeric (strings -> NaN)
+for col in NUM_COLS:
+    if col in df.columns:
+        df[col] = pd.to_numeric(df[col], errors="coerce")
+
 # --- Interactive Filters
 st.subheader("🎛️ Interactive Filters")
 
