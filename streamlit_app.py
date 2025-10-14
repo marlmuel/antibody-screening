@@ -11,6 +11,10 @@ df = kagglehub.load_dataset(
   KaggleDatasetAdapter.PANDAS,
   "aurlienplissier/abrank",
   file_path,
+  pandas_kwargs={
+      "engine": "python",   # needed for sep=None
+      "sep": None           # sniff delimiter automatically
+  }
   # Provide any additional arguments like 
   # sql_query or pandas_kwargs. See the 
   # documenation for more information:
