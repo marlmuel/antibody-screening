@@ -254,24 +254,6 @@ def heatmap(df: pd.DataFrame):
     )
     st.plotly_chart(fig, use_container_width=True)
 
-
-def structure_counts(df: pd.DataFrame):
-    st.subheader("Structure method counts")
-    cols = [c for c in ["Ab_structure_method","Ag_structure_method","bound_AbAg_structure_method"] if c in df.columns]
-    if not cols:
-        st.info("No structure method columns present.")
-        return
-    counts = (
-        df.melt(value_vars=cols, var_name="which", value_name="method")
-          .dropna(subset=["method"]) 
-          .groupby(["which","method"]) 
-          .size() 
-          .reset_index(name="count")
-    )
-    fig = px.bar(counts, x="method", y="count", color="which", barmode="group")
-    st.plotly_chart(fig, use_container_width=True)
-
-
 def sequence_lengths(df: pd.DataFrame):
     st.subheader("Sequence length relationships")
     numeric = [c for c in ["Ab_heavy_chain_seq_len","Ab_light_chain_seq_len","Ag_seq_len","CDRH3_len_proxy","Affinity_Kd [nM]","IC50 [ug/mL]"] if c in df.columns]
@@ -308,13 +290,9 @@ add_feature_notes()
 filt = sidebar_filters(clean)
 kpi_cards(filt)
 
-col1, col2 = st.columns([1.2, 1])
-with col1:
-    distribution_plots(filt)
-with col2:
-    structure_counts(filt)
+distribution_plots(filt)
 
 scatter_plots(filt)
 heatmap(filt)
-#sequence_lengths(filt)
+sequence_lengths(filt)
 table(filt)
