@@ -28,7 +28,7 @@ with example_note:
   )
 
 # @st.cache_data(show_spinner=False)
-def _read_data():
+def read_data():
   # Set the path to the file you'd like to load
   file_path = "AbRank_dataset.csv"
   
