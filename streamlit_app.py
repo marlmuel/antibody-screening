@@ -53,15 +53,11 @@ def read_data():
 # -----------------------------
 # NA Analysis
 # -----------------------------
-def na_summary(df: pd.DataFrame):
-  st.subheader("NA Counts per Column")
-  na_df = pd.DataFrame({
-  'Column': df.columns,
-  'N_NA': df.isna().sum(),
-  'Pct_NA': (df.isna().sum() / len(df) * 100).round(2)
-  }).sort_values('Pct_NA', ascending=False).reset_index(drop=True)
-  st.dataframe(na_df, use_container_width=True)
-  st.bar_chart(na_df.set_index('Column')['Pct_NA'])
+def remove_na(df: pd.DataFrame):
+  pct_na = df.isna().sum() / len(df) * 100).round(2)
+  df = df.loc[:, (df.isnull().sum(axis=0) <= pct_na)]
+  st.write(df.columns)
+  return(df)
 
 
 # ===========================================
