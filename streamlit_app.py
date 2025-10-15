@@ -28,7 +28,7 @@ with example_note:
   )
 
 @st.cache_data(show_spinner=False)
-def _read_data(file) -> pd.DataFrame:
+def _read_data:
   # Set the path to the file you'd like to load
   file_path = "AbRank_dataset.csv"
   
@@ -267,7 +267,7 @@ def _table(df: pd.DataFrame):
 # Main app flow
 # -----------------------------
 
-raw = _read_data(df)
+raw = _read_data
 
 clean = _coerce_types(raw)
 _add_feature_notes()
