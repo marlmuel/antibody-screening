@@ -265,7 +265,7 @@ def table(df: pd.DataFrame):
 # Main app flow
 # -----------------------------
 
-raw = read_data
+raw = read_data()
 st.write(raw.head())
 clean = coerce_types(raw)
 add_feature_notes()
