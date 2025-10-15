@@ -298,5 +298,5 @@ with col2:
 
 scatter_plots(filt)
 heatmap(filt)
-sequence_lengths(filt)
+#sequence_lengths(filt)
 table(filt)
