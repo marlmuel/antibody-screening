@@ -44,7 +44,7 @@ def read_data():
   )
   # downsample to 10% if too large
   if len(df) > 1000:
-    frac = 0.01
+    frac = 0.05
     st.warning(f"Dataset has {len(df):,} rows — sampling {frac*100:.0f}% for performance.")
     df = df.sample(frac=frac, random_state=42)
   return df
