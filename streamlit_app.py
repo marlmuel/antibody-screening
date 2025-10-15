@@ -41,7 +41,7 @@ def _read_data():
       "sep": "\t" 
     }
   )
-  return pd.DataFrame(df)
+  return df
 
 
 # ===========================================
@@ -56,7 +56,7 @@ st.set_page_config(
 st.title('Antibody-Antigen Data Review (EDA)')
 
 # @st.cache_data(show_spinner=False)
-def _coerce_types(df: pd.DataFrame) -> pd.DataFrame:
+def coerce_types(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
     # Strip whitespace from column names
     df.columns = [c.strip() for c in df.columns]
@@ -96,14 +96,14 @@ def _coerce_types(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def _add_feature_notes():
+def add_feature_notes():
     st.info(
         "Applied cleaning: coerced numeric fields, created *_len columns, and a rough CDRH3 length proxy.",
         icon="ℹ️",
     )
 
 
-def _sidebar_filters(df: pd.DataFrame) -> pd.DataFrame:
+def sidebar_filters(df: pd.DataFrame) -> pd.DataFrame:
     st.sidebar.header("Filters")
     cat_cols = [
         "Ag_name", "Ag_name_details", "Source", "Ab_structure_method",
@@ -138,7 +138,7 @@ def _sidebar_filters(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def _kpi_cards(df: pd.DataFrame):
+def kpi_cards(df: pd.DataFrame):
     c1, c2, c3, c4, c5 = st.columns(5)
     with c1:
         st.metric("Rows", f"{len(df):,}")
@@ -157,7 +157,7 @@ def _kpi_cards(df: pd.DataFrame):
         st.metric("Overall NA %", f"{na_share*100:.1f}%")
 
 
-def _distribution_plots(df: pd.DataFrame):
+def distribution_plots(df: pd.DataFrame):
     st.subheader("Distributions")
     cols = []
     if "Affinity_Kd [nM]" in df.columns:
@@ -180,7 +180,7 @@ def _distribution_plots(df: pd.DataFrame):
         st.plotly_chart(fig, use_container_width=True)
 
 
-def _scatter_plots(df: pd.DataFrame):
+def scatter_plots(df: pd.DataFrame):
     st.subheader("Affinity vs IC50")
     if not set(["Affinity_Kd [nM]","IC50 [ug/mL]"]).issubset(df.columns):
         st.info("Both Affinity_Kd [nM] and IC50 [ug/mL] are needed for this plot.")
@@ -201,7 +201,7 @@ def _scatter_plots(df: pd.DataFrame):
     st.plotly_chart(fig, use_container_width=True)
 
 
-def _heatmap(df: pd.DataFrame):
+def heatmap(df: pd.DataFrame):
     st.subheader("Median affinity by Ab/Ag cluster")
     needed = ["Ab_Lev3_cluster","Ag_Lev3_cluster","Affinity_Kd [nM]"]
     if not set(needed).issubset(df.columns):
@@ -222,7 +222,7 @@ def _heatmap(df: pd.DataFrame):
     st.plotly_chart(fig, use_container_width=True)
 
 
-def _structure_counts(df: pd.DataFrame):
+def structure_counts(df: pd.DataFrame):
     st.subheader("Structure method counts")
     cols = [c for c in ["Ab_structure_method","Ag_structure_method","bound_AbAg_structure_method"] if c in df.columns]
     if not cols:
@@ -239,7 +239,7 @@ def _structure_counts(df: pd.DataFrame):
     st.plotly_chart(fig, use_container_width=True)
 
 
-def _sequence_lengths(df: pd.DataFrame):
+def sequence_lengths(df: pd.DataFrame):
     st.subheader("Sequence length relationships")
     numeric = [c for c in ["Ab_heavy_chain_seq_len","Ab_light_chain_seq_len","Ag_seq_len","CDRH3_len_proxy","Affinity_Kd [nM]","IC50 [ug/mL]"] if c in df.columns]
     opts_x = [c for c in numeric if c not in ("Affinity_Kd [nM]","IC50 [ug/mL]")]
@@ -256,7 +256,7 @@ def _sequence_lengths(df: pd.DataFrame):
     st.plotly_chart(fig, use_container_width=True)
 
 
-def _table(df: pd.DataFrame):
+def table(df: pd.DataFrame):
     st.subheader("Data table")
     st.dataframe(df, use_container_width=True)
 
@@ -265,21 +265,21 @@ def _table(df: pd.DataFrame):
 # Main app flow
 # -----------------------------
 
-raw = _read_data
+raw = read_data
+st.write(raw.head())
+clean = coerce_types(raw)
+add_feature_notes()
 
-clean = _coerce_types(raw)
-_add_feature_notes()
-
-filt = _sidebar_filters(clean)
-_kpi_cards(filt)
+filt = sidebar_filters(clean)
+kpi_cards(filt)
 
 col1, col2 = st.columns([1.2, 1])
 with col1:
-    _distribution_plots(filt)
+    distribution_plots(filt)
 with col2:
-    _structure_counts(filt)
+    structure_counts(filt)
 
-_scatter_plots(filt)
-_heatmap(filt)
-_sequence_lengths(filt)
-_table(filt)
+scatter_plots(filt)
+heatmap(filt)
+sequence_lengths(filt)
+table(filt)
