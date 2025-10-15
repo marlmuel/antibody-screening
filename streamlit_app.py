@@ -50,6 +50,20 @@ def read_data():
   return df
 
 
+# -----------------------------
+# NA Analysis
+# -----------------------------
+def na_summary(df: pd.DataFrame):
+  st.subheader("NA Counts per Column")
+  na_df = pd.DataFrame({
+  'Column': df.columns,
+  'N_NA': df.isna().sum(),
+  'Pct_NA': (df.isna().sum() / len(df) * 100).round(2)
+  }).sort_values('Pct_NA', ascending=False).reset_index(drop=True)
+  st.dataframe(na_df, use_container_width=True)
+  st.bar_chart(na_df.set_index('Column')['Pct_NA'])
+
+
 # ===========================================
 # 🧬 AbRank Dataset – Streamlit EDA Dashboard
 # ===========================================
@@ -272,6 +286,7 @@ def table(df: pd.DataFrame):
 # -----------------------------
 
 raw = read_data()
+na_summary(raw)
 st.write(raw.head())
 clean = coerce_types(raw)
 add_feature_notes()
