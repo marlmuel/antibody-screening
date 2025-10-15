@@ -1,4 +1,6 @@
 import streamlit as st
+import altair as alt
+import numpy as np
 import pandas as pd
 import kagglehub
 from kagglehub import KaggleDatasetAdapter
@@ -16,8 +18,15 @@ df = kagglehub.load_dataset(
   }
 )
 
+# ===========================================
+# 🧬 AbRank Dataset – Streamlit EDA Dashboard
+# ===========================================
+
 st.title('Antibody-Antigen Data Review (EDA)')
 
+# --- Quick info
+st.write(f"**Rows:** {df.shape[0]}  |  **Columns:** {df.shape[1]}")
+st.write("### 🧾 Column names")
 st.write(df.columns.tolist())
 
 st.subheader("🔎 Data Preview")
@@ -29,25 +38,9 @@ with st.expander("Column filter (preview only)"):
     cols_selected = st.multiselect("Select columns to display", df.columns.tolist(), default=df.columns.tolist())
     st.dataframe(df[cols_selected].head(n_preview), use_container_width=True)
 
-# ===========================================
-# 🧬 AbRank Dataset – Streamlit EDA Dashboard
-# ===========================================
-import streamlit as st
-import pandas as pd
-import altair as alt
-import numpy as np
-
-st.header("🔍 Exploratory Data Analysis – AbRank Dataset")
-
-# --- Quick info
-st.write(f"**Rows:** {df.shape[0]}  |  **Columns:** {df.shape[1]}")
-st.write("### 🧾 Column names")
-st.write(df.columns.tolist())
-
-# Columns we want numeric
+# Columns we want numeric -> Coerce to numeric (strings -> NaN)
 NUM_COLS = ["Affinity_Kd [nM]", "IC50 [ug/mL]", "log(Kd_ratio)", "log_Aff"]
 
-# 1) Coerce to numeric (strings -> NaN)
 for col in NUM_COLS:
     if col in df.columns:
         df[col] = pd.to_numeric(df[col], errors="coerce")
