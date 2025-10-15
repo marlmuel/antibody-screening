@@ -1,26 +1,57 @@
-import streamlit as st
-import altair as alt
-import numpy as np
-import pandas as pd
 import kagglehub
 from kagglehub import KaggleDatasetAdapter
+import re
+import numpy as np
+import pandas as pd
+import streamlit as st
+import plotly.express as px
+import plotly.figure_factory as ff
 
-# Set the path to the file you'd like to load
-file_path = "AbRank_dataset.csv"
+# Data ingestion
 
-# Load the latest version
-df = kagglehub.load_dataset(
-  KaggleDatasetAdapter.PANDAS,
-  "aurlienplissier/abrank",
-  file_path,
-  pandas_kwargs={
+example_note = st.expander("Column expectations (click to expand)")
+with example_note:
+  st.markdown(
+  """
+  Expected columns (case-sensitive; extra columns are fine):
+
+
+  - `Ab_name`, `Ag_name`, `Ag_name_details`
+  - `IC50 [ug/mL]`, `Affinity_Kd [nM]`, `log(Kd_ratio)`, `log_Aff`
+  - `Ag_epitope_restrictions`, `Source`, `escape`, `Aff_op`
+  - `Ab_heavy_chain_seq`, `Ab_light_chain_seq`, `Ag_seq`
+  - Structure meta: `Ab_structure_method`, `Ag_structure_method`, `bound_AbAg_structure_method`
+  - PDB ids: `Ab_PDB_ID`, `Ag_PDB_ID`, `bound_AbAg_PDB_ID`
+  - Cluster labels: `Ab_Lev3_cluster`, `Ab10_cluster`, `Ab25_cluster`, `Ab50_cluster`,
+  `Ag_Lev3_cluster`, `Ag10_cluster`, `Ag25_cluster`, `Ag50_cluster`
+  """
+  )
+
+@st.cache_data(show_spinner=False)
+def _read_data(file) -> pd.DataFrame:
+  # Set the path to the file you'd like to load
+  file_path = "AbRank_dataset.csv"
+  
+  # Load the latest version
+  df = kagglehub.load_dataset(
+    KaggleDatasetAdapter.PANDAS,
+    "aurlienplissier/abrank",
+    file_path,
+    pandas_kwargs={
       "sep": "\t" 
-  }
-)
+    }
+  )
+  return df
+
 
 # ===========================================
 # 🧬 AbRank Dataset – Streamlit EDA Dashboard
 # ===========================================
+
+st.set_page_config(
+    page_title="Antibody–Antigen EDA",
+    layout="wide",
+)
 
 st.title('Antibody-Antigen Data Review (EDA)')
 
@@ -38,154 +69,232 @@ with st.expander("Column filter (preview only)"):
     cols_selected = st.multiselect("Select columns to display", df.columns.tolist(), default=df.columns.tolist())
     st.dataframe(df[cols_selected].head(n_preview), use_container_width=True)
 
-# Columns we want numeric -> Coerce to numeric (strings -> NaN)
-NUM_COLS = ["Affinity_Kd [nM]", "IC50 [ug/mL]", "log(Kd_ratio)", "log_Aff"]
 
-for col in NUM_COLS:
-    if col in df.columns:
-        df[col] = pd.to_numeric(df[col], errors="coerce")
+@st.cache_data(show_spinner=False)
+def _coerce_types(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.copy()
+    # Strip whitespace from column names
+    df.columns = [c.strip() for c in df.columns]
 
-# --- Interactive Filters
-st.subheader("🎛️ Interactive Filters")
+    # Numeric columns we care about
+    num_cols = [
+        "IC50 [ug/mL]",
+        "Affinity_Kd [nM]",
+        "log(Kd_ratio)",
+        "log_Aff",
+    ]
+    for c in num_cols:
+        if c in df.columns:
+            df[c] = (
+                df[c]
+                .astype(str)
+                .str.replace(",", "", regex=False)
+                .str.replace("NA", "", regex=False)
+            )
+            df[c] = pd.to_numeric(df[c], errors="coerce")
 
-# Antigen and Antibody selection
-antigen_options = sorted(df["Ag_name"].dropna().unique().tolist())
-antibody_options = sorted(df["Ab_name"].dropna().unique().tolist())
+    # Quick sequence lengths (may help for proxy features)
+    for c in ["Ab_heavy_chain_seq", "Ab_light_chain_seq", "Ag_seq"]:
+        if c in df.columns:
+            df[f"{c}_len"] = df[c].astype(str).str.len()
 
-selected_antigens = st.multiselect("Filter by Antigen", antigen_options, default=[])
-selected_antibodies = st.multiselect("Filter by Antibody", antibody_options, default=[])
+    # Simple heuristic CDR3-ish length proxy (look for motif starting with 'CAR' and ending with 'WGQG' or 'WGGG' etc.)
+    if "Ab_heavy_chain_seq" in df.columns:
+        def cdrh3_len(seq: str):
+            if not isinstance(seq, str):
+                return np.nan
+            # Very rough regex; not IMGT-accurate, but helpful for EDA
+            m = re.search(r"C[A-Z]{2,30}W(GQG|GGG|GXG)", seq)
+            return len(m.group(0)) if m else np.nan
+        df["CDRH3_len_proxy"] = df["Ab_heavy_chain_seq"].apply(cdrh3_len)
 
-# Range filters
-res_min, res_max = float(df["Affinity_Kd [nM]"].min()), float(df["Affinity_Kd [nM]"].max())
-ic50_min, ic50_max = float(df["IC50 [ug/mL]"].min()), float(df["IC50 [ug/mL]"].max())
-res_range = st.slider("Affinity (Kd) range [nM]", min_value=res_min, max_value=res_max, value=(res_min, res_max))
-ic50_range = st.slider("IC50 range [µg/mL]", min_value=ic50_min, max_value=ic50_max, value=(ic50_min, ic50_max))
-
-# Apply filters
-filtered_df = df.copy()
-if selected_antigens:
-    filtered_df = filtered_df[filtered_df["Ag_name"].isin(selected_antigens)]
-if selected_antibodies:
-    filtered_df = filtered_df[filtered_df["Ab_name"].isin(selected_antibodies)]
-filtered_df = filtered_df[
-    (filtered_df["Affinity_Kd [nM]"].between(*res_range)) &
-    (filtered_df["IC50 [ug/mL]"].between(*ic50_range))
-]
-
-st.caption(f"Filtered rows: **{len(filtered_df)} / {len(df)}**")
-
-# --- Data Preview
-st.subheader("🧾 Data Preview")
-rows_to_show = st.slider("Rows to display", 5, 100, 20)
-st.dataframe(filtered_df.head(rows_to_show), use_container_width=True)
-
-# --- Summary Statistics
-st.subheader("📊 Basic Statistics")
-num_cols = ["IC50 [ug/mL]", "Affinity_Kd [nM]", "log(Kd_ratio)", "log_Aff"]
-st.dataframe(filtered_df[num_cols].describe().T, use_container_width=True)
-
-# --- Visualizations
-st.subheader("📈 Visualizations")
-
-# 1️⃣ Distribution of Affinity_Kd
-st.markdown("**Distribution of Affinity (Kd [nM])**")
-hist_kd = alt.Chart(filtered_df).mark_bar().encode(
-    x=alt.X("Affinity_Kd [nM]:Q", bin=alt.Bin(maxbins=40), title="Affinity_Kd [nM]"),
-    y="count()",
-    tooltip=["count()"]
-).properties(height=300)
-st.altair_chart(hist_kd, use_container_width=True)
-
-# 2️⃣ Distribution of IC50
-st.markdown("**Distribution of IC50 [µg/mL]**")
-hist_ic50 = alt.Chart(filtered_df).mark_bar().encode(
-    x=alt.X("IC50 [ug/mL]:Q", bin=alt.Bin(maxbins=40), title="IC50 [µg/mL]"),
-    y="count()",
-    tooltip=["count()"]
-).properties(height=300)
-st.altair_chart(hist_ic50, use_container_width=True)
-
-# 3️⃣ Antigen Frequency
-st.markdown("**Top Antigens by Count**")
-antigen_counts = filtered_df["Ag_name"].value_counts().reset_index().rename(columns={"index": "Antigen", "Ag_name": "Count"})
-chart_antigens = alt.Chart(antigen_counts.head(20)).mark_bar().encode(
-    x="Count:Q",
-    y=alt.Y("Antigen:N", sort='-x'),
-    tooltip=["Antigen", "Count"]
-)
-st.altair_chart(chart_antigens, use_container_width=True)
-
-# 4️⃣ Correlation Heatmap
-st.markdown("**Correlation Heatmap (numeric columns)**")
-corr = filtered_df[num_cols].corr().stack().reset_index()
-corr.columns = ["Feature1", "Feature2", "Correlation"]
-heat = alt.Chart(corr).mark_rect().encode(
-    x="Feature1:N",
-    y="Feature2:N",
-    color=alt.Color("Correlation:Q", scale=alt.Scale(scheme="redblue", domain=(-1, 1))),
-    tooltip=["Feature1", "Feature2", "Correlation"]
-).properties(height=350)
-st.altair_chart(heat, use_container_width=True)
-
-# 5️⃣ Antigen vs Affinity boxplot
-st.markdown("**Affinity distribution by Antigen**")
-top_antigens = df["Ag_name"].value_counts().head(15).index.tolist()
-box_aff = alt.Chart(filtered_df[filtered_df["Ag_name"].isin(top_antigens)]).mark_boxplot().encode(
-    x=alt.X("Ag_name:N", title="Antigen"),
-    y=alt.Y("Affinity_Kd [nM]:Q", title="Affinity [nM]"),
-    color="Ag_name:N",
-    tooltip=["Ag_name", "Affinity_Kd [nM]"]
-).properties(height=400)
-st.altair_chart(box_aff, use_container_width=True)
-
-# 6️⃣ IC50 vs Affinity scatter
-st.markdown("**IC50 vs Affinity (Kd)**")
-scatter = alt.Chart(filtered_df).mark_circle(size=60, opacity=0.7).encode(
-    x=alt.X("Affinity_Kd [nM]:Q"),
-    y=alt.Y("IC50 [ug/mL]:Q"),
-    color=alt.Color("Ag_name:N", legend=None),
-    tooltip=["Ab_name", "Ag_name", "IC50 [ug/mL]", "Affinity_Kd [nM]"]
-).properties(height=400)
-st.altair_chart(scatter, use_container_width=True)
-
-# 7️⃣ Sequence Composition (Amino Acid Frequency)
-st.subheader("🧪 Sequence Composition")
-seq_col = st.selectbox("Select sequence column", ["Ab_heavy_chain_seq", "Ab_light_chain_seq", "Ag_seq"])
-aa = list("ACDEFGHIKLMNPQRSTVWY")
-
-def count_aa(seq):
-    seq = str(seq).upper()
-    return {a: seq.count(a) for a in aa}
-
-seqs = filtered_df[seq_col].dropna().astype(str).tolist()
-total_counts = {a: 0 for a in aa}
-for s in seqs:
-    for a, v in count_aa(s).items():
-        total_counts[a] += v
-comp_df = pd.DataFrame({"AA": aa, "Count": [total_counts[a] for a in aa]})
-comp_df["Frequency"] = comp_df["Count"] / comp_df["Count"].sum()
-
-bar_comp = alt.Chart(comp_df).mark_bar().encode(
-    x="AA:N",
-    y="Frequency:Q",
-    tooltip=["AA", alt.Tooltip("Count:Q"), alt.Tooltip("Frequency:Q", format=".3f")]
-).properties(height=300)
-st.altair_chart(bar_comp, use_container_width=True)
-
-# 8️⃣ Per-record composition viewer
-with st.expander("Per-record composition"):
-    chosen_ab = st.selectbox("Select antibody", filtered_df["Ab_name"].unique().tolist())
-    row_seq = filtered_df.loc[filtered_df["Ab_name"] == chosen_ab, seq_col].iloc[0]
-    row_counts = count_aa(row_seq)
-    row_df = pd.DataFrame({"AA": aa, "Count": [row_counts[a] for a in aa]})
-    row_df["Frequency"] = row_df["Count"] / row_df["Count"].sum()
-    per_chart = alt.Chart(row_df).mark_bar().encode(
-        x="AA:N",
-        y="Frequency:Q",
-        tooltip=["AA", "Count", alt.Tooltip("Frequency:Q", format=".3f")]
-    ).properties(height=250)
-    st.altair_chart(per_chart, use_container_width=True)
-
-st.caption("🧠 Tip: adjust filters above to explore relationships between affinity, IC50, and antigen properties.")
+    return df
 
 
+def _add_feature_notes():
+    st.info(
+        "Applied cleaning: coerced numeric fields, created *_len columns, and a rough CDRH3 length proxy.",
+        icon="ℹ️",
+    )
+
+
+def _sidebar_filters(df: pd.DataFrame) -> pd.DataFrame:
+    st.sidebar.header("Filters")
+    cat_cols = [
+        "Ag_name", "Ag_name_details", "Source", "Ab_structure_method",
+        "Ag_structure_method", "bound_AbAg_structure_method",
+    ]
+    for c in [cc for cc in cat_cols if cc in df.columns]:
+        vals = ["(all)"] + sorted([v for v in df[c].dropna().astype(str).unique()])
+        choice = st.sidebar.selectbox(c, vals)
+        if choice != "(all)":
+            df = df[df[c].astype(str) == choice]
+
+    # Range filters
+    if "Affinity_Kd [nM]" in df.columns:
+        min_v, max_v = float(df["Affinity_Kd [nM]"].min()), float(df["Affinity_Kd [nM]"].max())
+        if not np.isnan(min_v) and not np.isnan(max_v) and min_v < max_v:
+            r = st.sidebar.slider("Affinity_Kd [nM] range", min_v, max_v, (min_v, max_v))
+            df = df[df["Affinity_Kd [nM]"].between(*r)]
+
+    if "IC50 [ug/mL]" in df.columns:
+        min_v, max_v = float(df["IC50 [ug/mL]"].min()), float(df["IC50 [ug/mL]"].max())
+        if not np.isnan(min_v) and not np.isnan(max_v) and min_v < max_v:
+            r = st.sidebar.slider("IC50 [ug/mL] range", min_v, max_v, (min_v, max_v))
+            df = df[df["IC50 [ug/mL]"].between(*r)]
+
+    search_str = st.sidebar.text_input("Search Ab/Ag name contains…")
+    if search_str:
+        mask = pd.Series(False, index=df.index)
+        for c in ["Ab_name", "Ag_name", "Ag_name_details"]:
+            if c in df.columns:
+                mask = mask | df[c].astype(str).str.contains(search_str, case=False, na=False)
+        df = df[mask]
+    return df
+
+
+def _kpi_cards(df: pd.DataFrame):
+    c1, c2, c3, c4, c5 = st.columns(5)
+    with c1:
+        st.metric("Rows", f"{len(df):,}")
+    with c2:
+        st.metric("Unique Abs", df["Ab_name"].nunique() if "Ab_name" in df.columns else 0)
+    with c3:
+        st.metric("Unique Ags", df["Ag_name"].nunique() if "Ag_name" in df.columns else 0)
+    with c4:
+        n_pdb = 0
+        for c in ["Ab_PDB_ID","Ag_PDB_ID","bound_AbAg_PDB_ID"]:
+            if c in df.columns:
+                n_pdb += df[c].notna().sum()
+        st.metric("PDB IDs (non-null)", int(n_pdb))
+    with c5:
+        na_share = df.isna().mean().mean() if len(df) else 0.0
+        st.metric("Overall NA %", f"{na_share*100:.1f}%")
+
+
+def _distribution_plots(df: pd.DataFrame):
+    st.subheader("Distributions")
+    cols = []
+    if "Affinity_Kd [nM]" in df.columns:
+        cols.append("Affinity_Kd [nM]")
+    if "IC50 [ug/mL]" in df.columns:
+        cols.append("IC50 [ug/mL]")
+    if "log(Kd_ratio)" in df.columns:
+        cols.append("log(Kd_ratio)")
+    if "log_Aff" in df.columns:
+        cols.append("log_Aff")
+
+    if cols:
+        choice = st.selectbox("Metric", cols)
+        group = st.selectbox("Group by (optional)", ["(none)"] + [c for c in ["Ag_name","Ab_name","Ag_Lev3_cluster","Ab_Lev3_cluster","Source"] if c in df.columns])
+        data = df.dropna(subset=[choice])
+        if group != "(none)" and group in df.columns:
+            fig = px.violin(data, x=group, y=choice, box=True, points=False)
+        else:
+            fig = px.histogram(data, x=choice, nbins=40, marginal="box")
+        st.plotly_chart(fig, use_container_width=True)
+
+
+def _scatter_plots(df: pd.DataFrame):
+    st.subheader("Affinity vs IC50")
+    if not set(["Affinity_Kd [nM]","IC50 [ug/mL]"]).issubset(df.columns):
+        st.info("Both Affinity_Kd [nM] and IC50 [ug/mL] are needed for this plot.")
+        return
+    data = df.dropna(subset=["Affinity_Kd [nM]","IC50 [ug/mL]"]).copy()
+    if data.empty:
+        st.info("No overlapping non-null values to plot.")
+        return
+    data["Affinity_Kd_log10"] = np.log10(data["Affinity_Kd [nM]"])
+    data["IC50_log10"] = np.log10(data["IC50 [ug/mL]"])
+
+    color_col = "Ag_name" if "Ag_name" in data.columns else None
+    fig = px.scatter(
+        data, x="Affinity_Kd_log10", y="IC50_log10",
+        color=color_col, hover_data=[c for c in ["Ab_name","Ag_name_details","Ab_PDB_ID","Ag_PDB_ID"] if c in data.columns]
+    )
+    fig.update_layout(xaxis_title="log10(Kd [nM])", yaxis_title="log10(IC50 [µg/mL])")
+    st.plotly_chart(fig, use_container_width=True)
+
+
+def _heatmap(df: pd.DataFrame):
+    st.subheader("Median affinity by Ab/Ag cluster")
+    needed = ["Ab_Lev3_cluster","Ag_Lev3_cluster","Affinity_Kd [nM]"]
+    if not set(needed).issubset(df.columns):
+        st.info("Need Ab_Lev3_cluster, Ag_Lev3_cluster, Affinity_Kd [nM] for this heatmap.")
+        return
+    pvt = df.pivot_table(index="Ag_Lev3_cluster", columns="Ab_Lev3_cluster", values="Affinity_Kd [nM]", aggfunc="median")
+    if pvt.empty:
+        st.info("Nothing to aggregate.")
+        return
+    fig = ff.create_annotated_heatmap(
+        z=pvt.values,
+        x=pvt.columns.astype(str).tolist(),
+        y=pvt.index.astype(str).tolist(),
+        colorscale="Viridis",
+        showscale=True,
+        annotation_text=np.round(pvt.values, 2),
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+
+def _structure_counts(df: pd.DataFrame):
+    st.subheader("Structure method counts")
+    cols = [c for c in ["Ab_structure_method","Ag_structure_method","bound_AbAg_structure_method"] if c in df.columns]
+    if not cols:
+        st.info("No structure method columns present.")
+        return
+    counts = (
+        df.melt(value_vars=cols, var_name="which", value_name="method")
+          .dropna(subset=["method"]) 
+          .groupby(["which","method"]) 
+          .size() 
+          .reset_index(name="count")
+    )
+    fig = px.bar(counts, x="method", y="count", color="which", barmode="group")
+    st.plotly_chart(fig, use_container_width=True)
+
+
+def _sequence_lengths(df: pd.DataFrame):
+    st.subheader("Sequence length relationships")
+    numeric = [c for c in ["Ab_heavy_chain_seq_len","Ab_light_chain_seq_len","Ag_seq_len","CDRH3_len_proxy","Affinity_Kd [nM]","IC50 [ug/mL]"] if c in df.columns]
+    opts_x = [c for c in numeric if c not in ("Affinity_Kd [nM]","IC50 [ug/mL]")]
+    if not opts_x:
+        st.info("Upload sequences to enable length-based plots.")
+        return
+    x = st.selectbox("X axis", opts_x)
+    y = st.selectbox("Y axis", [c for c in ["Affinity_Kd [nM]","IC50 [ug/mL]","log(Kd_ratio)","log_Aff"] if c in df.columns])
+    data = df.dropna(subset=[x, y])
+    if data.empty:
+        st.info("No data after dropping NAs for selected axes.")
+        return
+    fig = px.scatter(data, x=x, y=y, color="Ag_name" if "Ag_name" in df.columns else None, trendline="ols")
+    st.plotly_chart(fig, use_container_width=True)
+
+
+def _table(df: pd.DataFrame):
+    st.subheader("Data table")
+    st.dataframe(df, use_container_width=True)
+
+
+# -----------------------------
+# Main app flow
+# -----------------------------
+
+raw = _read_data(df)
+
+clean = _coerce_types(raw)
+_add_feature_notes()
+
+filt = _sidebar_filters(clean)
+_kpi_cards(filt)
+
+col1, col2 = st.columns([1.2, 1])
+with col1:
+    _distribution_plots(filt)
+with col2:
+    _structure_counts(filt)
+
+_scatter_plots(filt)
+_heatmap(filt)
+_sequence_lengths(filt)
+_table(filt)
