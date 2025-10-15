@@ -42,6 +42,11 @@ def read_data():
       "sep": "\t" 
     }
   )
+  # downsample to 10% if too large
+  if len(df) > 100000:
+    frac = 0.1
+    st.warning(f"Dataset has {len(df):,} rows — sampling {frac*100:.0f}% for performance.")
+    df = df.sample(frac=frac, random_state=42)
   return df
 
 
