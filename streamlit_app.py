@@ -282,9 +282,9 @@ def table(df: pd.DataFrame):
 # -----------------------------
 
 raw = read_data()
-na_summary(raw)
 st.write(raw.head())
-clean = coerce_types(raw)
+na_removed = remove_na(raw)
+clean = coerce_types(na_removed)
 add_feature_notes()
 
 filt = sidebar_filters(clean)
