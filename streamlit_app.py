@@ -55,9 +55,7 @@ st.set_page_config(
 
 st.title('Antibody-Antigen Data Review (EDA)')
 
-
-
-@st.cache_data(show_spinner=False)
+# @st.cache_data(show_spinner=False)
 def _coerce_types(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
     # Strip whitespace from column names
