@@ -54,10 +54,18 @@ def read_data():
 # NA Analysis
 # -----------------------------
 def remove_na(df: pd.DataFrame):
-  pct_na = df.isna().sum() / len(df) * 100
-  st.write(pct_na)
-  df = df.loc[:, (df.isna().sum(axis=0)/ len(df) * 100 <= pct_na)]
-  st.write(df.columns)
+  st.subheader("NA Counts per Column (before filtering)")
+  na_df = pd.DataFrame({
+    'Column': df.columns,
+    'N_NA': df.isna().sum(),
+    'Pct_NA': (df.isna().sum() / len(df) * 100).round(2)
+  }).sort_values('Pct_NA', ascending=False).reset_index(drop=True)
+
+  
+  st.dataframe(na_df, use_container_width=True)
+  st.bar_chart(na_df.set_index('Column')['Pct_NA'])
+
+
   # Drop columns with >90% NA
   to_drop = na_df.loc[na_df['Pct_NA'] > 90, 'Column'].tolist()
   if to_drop:
