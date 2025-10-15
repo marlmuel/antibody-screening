@@ -285,6 +285,7 @@ def table(df: pd.DataFrame):
 raw = read_data()
 st.write(raw.head())
 na_removed = remove_na(raw)
+st.write(na_removed.head())
 clean = coerce_types(na_removed)
 add_feature_notes()
 
