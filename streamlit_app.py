@@ -4,8 +4,8 @@ import re
 import numpy as np
 import pandas as pd
 import streamlit as st
-import plotly.express as px
-import plotly.figure_factory as ff
+#import plotly.express as px
+#import plotly.figure_factory as ff
 
 # Data ingestion
 
