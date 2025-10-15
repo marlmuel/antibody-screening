@@ -41,7 +41,7 @@ def _read_data():
       "sep": "\t" 
     }
   )
-  return df
+  return pd.DataFrame(df)
 
 
 # ===========================================
@@ -57,7 +57,7 @@ st.title('Antibody-Antigen Data Review (EDA)')
 
 # @st.cache_data(show_spinner=False)
 def _coerce_types(df: pd.DataFrame) -> pd.DataFrame:
-    #df = df.copy()
+    df = df.copy()
     # Strip whitespace from column names
     df.columns = [c.strip() for c in df.columns]
 
