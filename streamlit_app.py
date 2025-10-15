@@ -42,11 +42,6 @@ def read_data():
       "sep": "\t" 
     }
   )
-  # downsample to 2% if too large
-  #if len(df) > 1000:
-  #  frac = 0.02
-  #  st.warning(f"Dataset has {len(df):,} rows — sampling {frac*100:.0f}% for performance.")
-  #  df = df.sample(frac=frac, random_state=42)
   return df
 
 
@@ -73,6 +68,12 @@ def remove_na(df: pd.DataFrame):
     df = df.drop(columns=to_drop)
   else:
     st.success("No columns exceeded 90% missing values.")
+
+  # downsample to 2% if too large
+  if len(df) > 1000:
+    frac = 0.1
+    st.warning(f"Dataset has {len(df):,} rows — sampling {frac*100:.0f}% for performance.")
+    df = df.sample(frac=frac, random_state=42)
   return df
 
 
