@@ -293,6 +293,6 @@ kpi_cards(filt)
 distribution_plots(filt)
 
 scatter_plots(filt)
-heatmap(filt)
+#heatmap(filt)
 sequence_lengths(filt)
 table(filt)
