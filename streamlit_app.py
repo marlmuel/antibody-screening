@@ -55,6 +55,7 @@ def read_data():
 # -----------------------------
 def remove_na(df: pd.DataFrame):
   pct_na = df.isna().sum() / len(df) * 100
+  st.write(pct_na)
   df = df.loc[:, (df.isnull().sum(axis=0) <= pct_na)]
   st.write(df.columns)
   return(df)
