@@ -58,7 +58,14 @@ def remove_na(df: pd.DataFrame):
   st.write(pct_na)
   df = df.loc[:, (df.isna().sum(axis=0)/ len(df) * 100 <= pct_na)]
   st.write(df.columns)
-  return(df)
+  # Drop columns with >90% NA
+  to_drop = na_df.loc[na_df['Pct_NA'] > 90, 'Column'].tolist()
+  if to_drop:
+    st.warning(f"Dropping {len(to_drop)} columns with >90% missing values: {to_drop}")
+    df = df.drop(columns=to_drop)
+  else:
+    st.success("No columns exceeded 90% missing values.")
+  return df
 
 
 # ===========================================
