@@ -3,3 +3,4 @@ pandas
 numpy
 kagglehub
 plotly
+statsmodels
