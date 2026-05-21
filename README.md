@@ -1,21 +1,16 @@
-# 📦 Streamlit App Starter Kit 
-```
-⬆️ (Replace above with your app's name)
-```
+# 📦 Antibody Screening App 
 
-Description of the app ...
 
-## Demo App
+This app shows publicly available antibody screening data from huggingFace.
+There is information about Antibody/Antigen and its assay results, e.g. binding kinetics and AA sequences.
+The following steps are performed in this report:
+- data cleaning
+- scatter plot of diverse relationships
+- sequence alignment and analysis
 
-[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://app-starter-kit.streamlit.app/)
+## Link to App
 
-## GitHub Codespaces
-
-[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/streamlit/app-starter-kit?quickstart=1)
-
-## Section Heading
-
-This is filler text, please replace this with text for this section.
+https://antibody-screening-oc4r4xemxvxxbqxovgaoo6.streamlit.app/
 
 ## Further Reading
 
